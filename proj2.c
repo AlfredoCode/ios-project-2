@@ -25,9 +25,13 @@ FILE *fp;
 
 
 
-
 int idO = 0;
 int idH = 0;
+int *idO_cnt;
+int *idH_cnt;
+int idO_shared;
+int idH_shared;
+// int molecule = 0;
 
 sem_t
     *oxy,
@@ -36,8 +40,35 @@ sem_t
     *log_write;
     
 void sem_initialization(){
+    idO_shared = shm_open("idO", O_RDWR|O_CREAT, 0666);
+    if(idO_shared < 1){
+        perror("error");
+    }
+    ftruncate(idO_shared, sizeof(int));
+    idO_cnt = mmap(NULL, sizeof(int*), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, idO_shared, 0);
+    if (idO_cnt==MAP_FAILED) { 
+        fprintf(stderr,"mmap\n"); 
+        close(idO_shared);
+        shm_unlink("idO");
+        exit(ERR_FAIL); 
+    }
+    idH_shared = shm_open("idH", O_RDWR|O_CREAT, 0666);
+    if(idH_shared < 1){
+        perror("error");
+    }
+    ftruncate(idH_shared, sizeof(int));
+    idH_cnt = mmap(NULL, sizeof(int*), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, idH_shared, 0);
+    if (idH_cnt==MAP_FAILED) { 
+        fprintf(stderr,"mmap\n"); 
+        close(idH_shared);
+        shm_unlink("idH");
+        exit(ERR_FAIL); 
+    }
     
-    if( (log_write = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0)) == MAP_FAILED || sem_init(log_write, 1, 1) == -1){
+    // ftruncate(mole_shared, sizeof(int));
+    if( (log_write = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0)) == MAP_FAILED || sem_init(log_write, 1, 1) == -1 || 
+    (oxy = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0)) == MAP_FAILED || sem_init(oxy, 1, 0) == -1 || 
+    (mutex = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0)) == MAP_FAILED || sem_init(mutex, 1, 1) == -1){
         fprintf(stderr,"Error initializing semaphores!\n");
         exit(ERR_FAIL);
     }    
@@ -77,59 +108,92 @@ void file_write(char* process, char* status){
 
 
 void oxy_proc(int *add,int ti, int tb){
+    
     sem_wait(log_write);
+        
         (*add)++;
-        fprintf(fp,"%d: O %d: started\n", *add, idO);
+        (*idO_cnt)++;
+        fprintf(fp,"%d: O %d: started, idH is %d\n", *add, idO, *idH_cnt);
         //fflush(fp);
     sem_post(log_write);
+    sem_wait(mutex); 
     sem_wait(log_write);
         (*add)++;
         usleep(rand() % ti);
         fprintf(fp,"%d: O %d: going to queue\n", *add, idO);
+
     sem_post(log_write);
+   
+    if((*idH_cnt) >= 2){
+        sem_post(hydro);
+        sem_post(hydro);
+        printf("hia");
+    }
+    else{
+        sem_post(mutex);    
+        fclose(fp); //Valgrind 
+        exit(ERR_SUCC);   
+    }
+    //sem_wait(oxy);
+    fprintf(fp,"%d: O %d: creating molecule\n",*add, idO);
+    sem_post(mutex);    
     fclose(fp); //Valgrind 
     exit(ERR_SUCC);
 }
 void oxy_create(int cnt, int* add,int ti, int tb){
+
+
     for(int i=1; i <= cnt; i++){
         //printf("%d\n",*add);
-        idO++;
-         pid_t oxygen = fork();
-         
-         if(oxygen == 0){
-             oxy_proc(add,ti,tb);
-             
-             
-         }
-       
+  
+
+        pid_t oxygen = fork();
+        idO++; 
+        if(oxygen == 0){           
+            oxy_proc(add,ti,tb);
+            
+        }       
     }
-    while(wait(NULL)>0);
+    
+    //while(wait(NULL)>0);
+    
+    
     //exit(ERR_SUCC);
     
 }
-void hydro_proc(int *add){
+void hydro_proc(int *add, int ti, int tb){
     sem_wait(log_write);
         (*add)++;
+        (*idH_cnt)++;
         fprintf(fp,"%d: H %d: started\n", *add, idH);
         //fflush(fp);
     sem_post(log_write);
+    sem_wait(mutex);
+    sem_wait(log_write);
+        (*add)++;
+        usleep(rand() % ti);
+        fprintf(fp,"%d: H %d: going to queue\n", *add, idH);
+    sem_post(log_write);
+    //sem_post(oxy);
+
+    sem_post(mutex);
     fclose(fp);//Valgrind
     exit(ERR_SUCC);
 }
 
-void hydro_create(int cnt, int* add){
+void hydro_create(int cnt, int* add,int ti, int tb){
     for(int i=1; i <= cnt; i++){
         //printf("%d\n",*add);
+        
+        pid_t hydro = fork();
         idH++;
-         pid_t hydro = fork();
-         
-         if(hydro == 0){
-             hydro_proc(add);
-             
-         }
-       
+        if(hydro == 0){
+            hydro_proc(add, ti, tb);
+            
+        }
+     
     }
-    while(wait(NULL)>0);
+    //while(wait(NULL)>0);
     //exit(ERR_SUCC);
     
 }
@@ -189,29 +253,31 @@ int main(int argc, char **argv){
         close(cnt_shared);
         shm_unlink("xhofma11");
         exit(ERR_FAIL); 
-        }
+    }
     fp = fopen("proj2.out", "w");
         if(fp == NULL){
             errFile();
     }
     setbuf(fp, NULL);
-    pid_t oxy_pid, hydro_pid, main_pid;
-
-    // main_pid = fork();
-    // proc_valid(main_pid);
-
-    // if(main_pid == 0){
+    pid_t oxy_pid, hydro_pid;   
+   
         oxy_create(NO, counter, TI, TB);
-        hydro_create(NH, counter); 
-         //while(wait(NULL) > 0); // Parent waits till children kill themself
-        //  exit(0);
-    // }
-   
-   
-    //wait(NULL); // Waits until child is dead
+        hydro_create(NH, counter, TI, TB); 
+        while(wait(NULL)>0); // TODO MRDKA CRASHUJE
+
+        
+
+    wait(NULL); // Waits until child is dead
     close(cnt_shared);
     shm_unlink("xhofma11");
+    close(idO_shared);
+    shm_unlink("idO");
+    close(idH_shared);
+    shm_unlink("idH");
+    // shm_unlink("molecule");
     //printf("Finishing\n");
     fclose(fp);
+
+
     return 0;
 }
