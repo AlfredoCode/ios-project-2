@@ -133,8 +133,9 @@ void oxy_proc(int *add,int ti, int tb){
     sem_wait(oxy);
     (*add)++;
     fprintf(fp,"%d: O %d: creating molecule\n",*add, idO);
+    //usleep((rand() % (tb+1))*1000);   TODO FIX THIS MF TEST.PY SLEEP
     sem_post(mutex);    
-    //fclose(fp); //Valgrind 
+    fclose(fp); //Valgrind 
     exit(ERR_SUCC);
 }
 void oxy_create(int cnt, int* add,int ti, int tb){
@@ -146,7 +147,8 @@ void oxy_create(int cnt, int* add,int ti, int tb){
 
         pid_t oxygen = fork();
         idO++;
-        if(oxygen == 0){           
+        if(oxygen == 0){  
+            printf("forked\n");         
             oxy_proc(add,ti,tb);
             
         }       
@@ -186,7 +188,7 @@ void hydro_create(int cnt, int* add,int ti, int tb){
         pid_t hydro = fork();
         idH++;
         if(hydro == 0){
-            
+            printf("forked\n"); 
             hydro_proc(add, ti, tb);
             
         }
