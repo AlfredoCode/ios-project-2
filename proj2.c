@@ -110,34 +110,31 @@ void file_write(char* process, char* status){
 void oxy_proc(int *add,int ti, int tb){
     
     sem_wait(log_write);
-        
+         
         (*add)++;
         (*idO_cnt)++;
-        fprintf(fp,"%d: O %d: started, idH is %d\n", *add, idO, *idH_cnt);
+        fprintf(fp,"%d: O %d: started\n", *add, idO);
         //fflush(fp);
     sem_post(log_write);
     sem_wait(mutex); 
     sem_wait(log_write);
         (*add)++;
-        usleep(rand() % ti);
+        usleep((rand() % (ti+1))*1000);
         fprintf(fp,"%d: O %d: going to queue\n", *add, idO);
 
     sem_post(log_write);
-   
-    if((*idH_cnt) >= 2){
-        sem_post(hydro);
-        sem_post(hydro);
-        printf("hia");
-    }
-    else{
-        sem_post(mutex);    
-        fclose(fp); //Valgrind 
-        exit(ERR_SUCC);   
-    }
-    //sem_wait(oxy);
+   if((*idH_cnt) >= 2){
+       sem_post(oxy);
+   }
+   else{
+       sem_post(mutex);
+       exit(ERR_SUCC);
+   }
+    sem_wait(oxy);
+    (*add)++;
     fprintf(fp,"%d: O %d: creating molecule\n",*add, idO);
     sem_post(mutex);    
-    fclose(fp); //Valgrind 
+    //fclose(fp); //Valgrind 
     exit(ERR_SUCC);
 }
 void oxy_create(int cnt, int* add,int ti, int tb){
@@ -148,7 +145,7 @@ void oxy_create(int cnt, int* add,int ti, int tb){
   
 
         pid_t oxygen = fork();
-        idO++; 
+        idO++;
         if(oxygen == 0){           
             oxy_proc(add,ti,tb);
             
@@ -165,19 +162,20 @@ void hydro_proc(int *add, int ti, int tb){
     sem_wait(log_write);
         (*add)++;
         (*idH_cnt)++;
+        
         fprintf(fp,"%d: H %d: started\n", *add, idH);
         //fflush(fp);
     sem_post(log_write);
     sem_wait(mutex);
     sem_wait(log_write);
         (*add)++;
-        usleep(rand() % ti);
+        usleep((rand() % (ti+1))*1000);
         fprintf(fp,"%d: H %d: going to queue\n", *add, idH);
     sem_post(log_write);
     //sem_post(oxy);
-
+    //fclose(fp);//Valgrind
+    
     sem_post(mutex);
-    fclose(fp);//Valgrind
     exit(ERR_SUCC);
 }
 
@@ -188,6 +186,7 @@ void hydro_create(int cnt, int* add,int ti, int tb){
         pid_t hydro = fork();
         idH++;
         if(hydro == 0){
+            
             hydro_proc(add, ti, tb);
             
         }
@@ -262,18 +261,22 @@ int main(int argc, char **argv){
     pid_t oxy_pid, hydro_pid;   
    
         oxy_create(NO, counter, TI, TB);
+        //while(wait(NULL)>0);
         hydro_create(NH, counter, TI, TB); 
-        while(wait(NULL)>0); // TODO MRDKA CRASHUJE
+        while(wait(NULL)>0);
 
         
 
-    wait(NULL); // Waits until child is dead
+    //wait(NULL); // Waits until child is dead
     close(cnt_shared);
     shm_unlink("xhofma11");
     close(idO_shared);
     shm_unlink("idO");
     close(idH_shared);
     shm_unlink("idH");
+
+    
+
     // shm_unlink("molecule");
     //printf("Finishing\n");
     fclose(fp);
