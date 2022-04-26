@@ -143,12 +143,12 @@ void oxy_create(int cnt, int* add,int ti, int tb){
 
     for(int i=1; i <= cnt; i++){
         //printf("%d\n",*add);
-  
+        
 
         pid_t oxygen = fork();
         idO++;
         if(oxygen == 0){  
-            printf("forked\n");         
+            printf("forked_oxy\n");
             oxy_proc(add,ti,tb);
             
         }       
@@ -175,7 +175,7 @@ void hydro_proc(int *add, int ti, int tb){
         fprintf(fp,"%d: H %d: going to queue\n", *add, idH);
     sem_post(log_write);
     //sem_post(oxy);
-    //fclose(fp);//Valgrind
+    fclose(fp);//Valgrind
     
     sem_post(mutex);
     exit(ERR_SUCC);
@@ -183,12 +183,13 @@ void hydro_proc(int *add, int ti, int tb){
 
 void hydro_create(int cnt, int* add,int ti, int tb){
     for(int i=1; i <= cnt; i++){
-        //printf("%d\n",*add);
+        //printf("%d\n",cnt);
         
         pid_t hydro = fork();
         idH++;
         if(hydro == 0){
-            printf("forked\n"); 
+            printf("forked_hydro\n");
+            //printf("forked\n"); 
             hydro_proc(add, ti, tb);
             
         }
