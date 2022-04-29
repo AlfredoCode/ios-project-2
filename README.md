@@ -7,10 +7,9 @@ _Autorem tohoto projektu je **Dominik Hofman**_
 Repozitář obsahuje zdrojové soubory k projektu, Makefile, ale i skripty pro usnadnění práce. **Skripty neověřují funkčnost programu!**
 
 ## Použití
-```
-make
-./proj2 NO NH TI TB
-```
+`make`
+`./proj2 NO NH TI TB`
+
 > **NO** - Počet kyslíků
 > 
 > **NH** - Počet vodíků
