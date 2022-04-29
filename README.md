@@ -10,13 +10,13 @@ Repozitář obsahuje zdrojové soubory k projektu, Makefile, ale i skripty pro u
 make
 ./proj2 NO NH TI TB
 ```
-> NO - Počet kyslíků
+> **NO** - Počet kyslíků
 > 
-> NH - Počet vodíků
+> **NH** - Počet vodíků
 > 
-> TI - Maximální čas milisekundách, po který atom kyslíku/vodíku po svém vytvoření čeká, než se zařadí do fronty na vytváření molekul. 0<=TI<=1000
+> **TI** - Maximální čas milisekundách, po který atom kyslíku/vodíku po svém vytvoření čeká, než se zařadí do fronty na vytváření molekul. 0<=TI<=1000
 > 
-> TB - Maximální čas v milisekundách nutný pro vytvoření jedné molekuly. 0<=TB<=1000
+> **TB** - Maximální čas v milisekundách nutný pro vytvoření jedné molekuly. 0<=TB<=1000
 
 
 ## Popis úlohy
