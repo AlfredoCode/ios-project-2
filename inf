@@ -1,3 +1,28 @@
 #!/bin/bash
-i=0;
-while [ $i -lt 20 ]; do ./proj2 20 20 10 10; i=$((i+1));sleep 0.1;done;
+i=1;
+BLUE='\033[1;36m'
+NC='\033[0m' # No Color
+RED='\033[1;31m'
+refresh=""
+log_txt=""
+separator="----------------------------------------------------------------------------"
+while [ $i -le 20 ]; do 
+    printf "${BLUE}Refresh $i${NC}\n";
+    refresh="$(./proj2 3 6 10 10 && cat proj2.out)";
+    echo "$refresh";
+    printf "%s"${RED}$separator${NC}\\n;
+    test=$(echo "$refresh" | ./kontrola-vystupu.sh);
+    echo "$test";
+    printf "%s"${RED}$separator${NC}\\n;
+    log_txt+=$(printf "Refresh $i\r\n")"$refresh"$(printf "\r\n")$(printf "%s"$separator\\r\\n)"$test"$(printf "\r\n")$(printf "%s"$separator\\r\\n);
+    echo "$log_txt" > "log.txt";
+
+
+
+
+
+
+    i=$((i+1));
+    sleep 0.1;
+done;
+    
