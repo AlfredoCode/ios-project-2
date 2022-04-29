@@ -1,6 +1,7 @@
 # IOS Projekt 2 (Synchronizace) - Building H2O
 
 Toto je repozitář pro druhý projekt z předmětu IOS, který je vyučován na **Fakulta informačních technologií Vysokého učení technického v Brně**.
+
 _Autorem tohoto projektu je **Dominik Hofman**_
 
 Repozitář obsahuje zdrojové soubory k projektu, Makefile, ale i skripty pro usnadnění práce. **Skripty neověřují funkčnost programu!**
