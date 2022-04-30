@@ -14,7 +14,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-
 #define ARGCOUNT 5
 #define MAXTIME 1000
 #define ERR_FAIL 1
@@ -24,9 +23,13 @@ FILE *fp;
 
 
 
-
+int NO, NH, TI, TB;
 int idO = 0;
 int idH = 0;
+int expectedMolecules;
+
+int *hydro_tmp;
+int *oxy_tmp;
 
 int *idO_cnt;
 int *idH_cnt;
@@ -34,6 +37,8 @@ int *counter;
 int *molecule;
 int *bar_cnt;
 
+int hydro_tmp_shared;
+int oxy_tmp_shared;
 int idO_shared;
 int idH_shared;
 int cnt_shared;
@@ -41,6 +46,7 @@ int molecule_shared;
 int bar_cnt_shared;
 
 sem_t
+    *enough,
     *oxy,
     *hydro,
     *mutex,
@@ -48,7 +54,33 @@ sem_t
     *bar_mutex,
     *bar_1,
     *bar_2;
+
+void clean(){
+    close(cnt_shared);
+    shm_unlink("xhofma11_pid");
+    munmap(counter, sizeof(sem_t));
     
+    close(idO_shared);
+    shm_unlink("xhofma11_idO");
+    munmap(idO_cnt, sizeof(sem_t));
+
+    close(idH_shared);
+    shm_unlink("xhofma11_idH");
+    munmap(idH_cnt, sizeof(sem_t));
+
+    close(molecule_shared);
+    shm_unlink("xhofma11_moleculeID");
+    munmap(molecule, sizeof(sem_t));
+
+    close(bar_cnt_shared);
+    shm_unlink("xhofma11_bar_cnt");
+    munmap(bar_cnt, sizeof(sem_t));
+
+    //TODO DESTROY ALL SEMAPHORES
+}
+
+
+
 void sem_initialization(){
     idO_shared = shm_open("xhofma11_idO", O_RDWR|O_CREAT, 0666);
     if(idO_shared < 1){
@@ -73,6 +105,32 @@ void sem_initialization(){
         fprintf(stderr,"mmap\n"); 
         close(idH_shared);
         shm_unlink("xhofma11_idH");
+        exit(ERR_FAIL); 
+    }
+
+    hydro_tmp_shared = shm_open("xhofma11_hydro_tmp", O_RDWR|O_CREAT, 0666);
+    if(hydro_tmp_shared < 1){
+        fprintf(stderr,"error");
+    }
+    ftruncate(hydro_tmp_shared, sizeof(int));
+    hydro_tmp = mmap(NULL, sizeof(int*), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, hydro_tmp_shared, 0);
+    if (hydro_tmp==MAP_FAILED) { 
+        fprintf(stderr,"mmap\n"); 
+        close(hydro_tmp_shared);
+        shm_unlink("xhofma11_hydro_tmp");
+        exit(ERR_FAIL); 
+    }
+
+    oxy_tmp_shared = shm_open("xhofma11_hydro_tmp", O_RDWR|O_CREAT, 0666);
+    if(oxy_tmp_shared < 1){
+        fprintf(stderr,"error");
+    }
+    ftruncate(oxy_tmp_shared, sizeof(int));
+    oxy_tmp = mmap(NULL, sizeof(int*), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, oxy_tmp_shared, 0);
+    if (hydro_tmp==MAP_FAILED) { 
+        fprintf(stderr,"mmap\n"); 
+        close(oxy_tmp_shared);
+        shm_unlink("xhofma11_hydro_tmp");
         exit(ERR_FAIL); 
     }
 
@@ -112,7 +170,8 @@ void sem_initialization(){
     (mutex = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0)) == MAP_FAILED || sem_init(mutex, 1, 1) == -1 || 
     (bar_mutex = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0)) == MAP_FAILED || sem_init(bar_mutex, 1, 1) == -1 || 
     (bar_1 = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0)) == MAP_FAILED || sem_init(bar_1, 1, 0) == -1 || 
-    (bar_2 = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0)) == MAP_FAILED || sem_init(bar_2, 1, 1) == -1){
+    (bar_2 = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0)) == MAP_FAILED || sem_init(bar_2, 1, 1) == -1 || 
+    (enough = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0)) == MAP_FAILED || sem_init(enough, 1, 0) == -1){
         fprintf(stderr,"Error initializing semaphores!\n");
         exit(ERR_FAIL);
     }    
@@ -144,58 +203,59 @@ void errFile(){
     fprintf(stderr,"File could not be opened!\n");
     exit(ERR_FAIL);   
 }
-
-//TODO file_write func
-void file_write(char* process, char* status){
-
-}
-
-
 void oxy_proc(int ti, int tb){
-    
     sem_wait(log_write);
          
         (*counter)++;
         fprintf(fp,"%d: O %d: started\n", *counter, idO);
         //fflush(fp);
     sem_post(log_write);
-    sem_wait(mutex); 
+
+     
+    // if((*hydro_tmp) < 2){
+    //     sem_wait(log_write);
+    //     fprintf(fp,"%d: O %d: not Enough H\n", *counter, idO);       //THIS MF DOES NOT WORK FIX IT ASAP
+        
+    //     sem_post(log_write);
+    //     sem_post(mutex);
+    //     exit(0);
+
+    // }
     sem_wait(log_write);
         (*counter)++;
-        (*idO_cnt)++;
+        (*idO_cnt)++;       
         usleep((rand() % (ti+1))*1000);
-        fprintf(fp,"%d: O %d: going to queue\n", *counter, idO);
-
+        fprintf(fp,"%d: O %d: going to queue\n", *counter, idO);       
     sem_post(log_write);
+
+    sem_wait(mutex);
+  
+
     if((*idH_cnt) >= 2){
         //sem_post(oxy);
-        if((*idO_cnt) < 1){
-            sem_wait(log_write);
-            fprintf(fp,"Not enough O\n");
-            sem_post(log_write);
-            sem_post(mutex);
-            exit(ERR_SUCC);
-        }
-        else{
-            sem_post(hydro);
-            sem_post(hydro);
-            (*idH_cnt) -= 2;
-            sem_post(oxy);
-            (*idO_cnt)--;
-        }
         
-
+        sem_post(hydro);
+        sem_post(hydro);
+        (*idH_cnt) -= 2;
+        (*hydro_tmp) -= 2;
+        sem_post(oxy);
+        (*idO_cnt)--;
+        
     }
     else{
+        
         sem_post(mutex);
-        //exit(ERR_SUCC);
+        
     }
+
     sem_wait(oxy);
+    
     sem_wait(log_write);
     (*counter)++;
     fprintf(fp,"%d: O %d: creating molecule %d\n",*counter, idO,*molecule);
+    usleep((rand() % (tb+1))*1000);
     sem_post(log_write);
-    //usleep((rand() % (tb+1))*1000);   TODO FIX THIS MF TEST.PY SLEEP
+    
 
     //BARRIER
     sem_wait(bar_mutex);
@@ -211,12 +271,15 @@ void oxy_proc(int ti, int tb){
     sem_wait(bar_1);
     
     sem_post(bar_1);
-
+    
     sem_wait(log_write);
     (*counter)++;
+    
     fprintf(fp,"%d: O %d: molecule %d created\n", *counter, idO, *molecule);    
     sem_post(log_write);
 
+
+    
     sem_wait(bar_mutex);
         (*bar_cnt)--;
         if((*bar_cnt) == 0){
@@ -230,8 +293,8 @@ void oxy_proc(int ti, int tb){
     sem_wait(bar_2);
     sem_post(bar_2);
     (*molecule)++;
+    sem_post(mutex);  
 
-    sem_post(mutex);    
     fclose(fp); //Valgrind 
     exit(ERR_SUCC);
 }
@@ -262,22 +325,25 @@ void hydro_proc(int ti, int tb){
         fprintf(fp,"%d: H %d: started\n", *counter, idH);
         //fflush(fp);
     sem_post(log_write);
-    sem_wait(mutex);
+    usleep((rand() % (ti+1))*1000);
     sem_wait(log_write);
         (*counter)++;
         (*idH_cnt)++;
-        usleep((rand() % (ti+1))*1000);
         fprintf(fp,"%d: H %d: going to queue\n", *counter, idH);
     sem_post(log_write);
 
+    sem_wait(mutex);
     if((*idH_cnt) >= 2 && (*idO_cnt) >= 1){
         sem_post(hydro);
         sem_post(hydro);
         (*idH_cnt) -= 2;
+        (*hydro_tmp) -= 2;
         sem_post(oxy);
         (*idO_cnt)--;
+
     }
     else{
+        
         sem_post(mutex);
         //exit(ERR_SUCC);
     }
@@ -287,12 +353,13 @@ void hydro_proc(int ti, int tb){
     
     sem_wait(log_write);
     (*counter)++;
+    
     fprintf(fp,"%d: H %d: creating molecule %d\n",*counter, idH,*molecule);
+    
     sem_post(log_write);
 
     //BARRIER
     sem_wait(bar_mutex);
-
         (*bar_cnt)++;
         if((*bar_cnt) == 3){
             sem_wait(bar_2);
@@ -302,6 +369,7 @@ void hydro_proc(int ti, int tb){
     sem_post(bar_mutex);
      
     sem_wait(bar_1);
+    
     sem_post(bar_1);
 
     sem_wait(log_write);
@@ -346,32 +414,10 @@ void hydro_create(int cnt,int ti, int tb){
 
 
 
-void clean(){
-    close(cnt_shared);
-    shm_unlink("xhofma11_pid");
-    munmap(counter, sizeof(sem_t));
-    
-    close(idO_shared);
-    shm_unlink("xhofma11_idO");
-    munmap(idO_cnt, sizeof(sem_t));
 
-    close(idH_shared);
-    shm_unlink("xhofma11_idH");
-    munmap(idH_cnt, sizeof(sem_t));
-
-    close(molecule_shared);
-    shm_unlink("xhofma11_moleculeID");
-    munmap(molecule, sizeof(sem_t));
-
-    close(bar_cnt_shared);
-    shm_unlink("xhofma11_bar_cnt");
-    munmap(bar_cnt, sizeof(sem_t));
-
-    //TODO DESTROY ALL SEMAPHORES
-}
 
 int main(int argc, char **argv){
-    int NO, NH, TI, TB;
+    
     
     if (argc != ARGCOUNT){
         param_cnt_msg();  
@@ -405,12 +451,20 @@ int main(int argc, char **argv){
         
     }
 
-    if(NO < 0 || NH < 0 || TI < 0 || TB < 0){
+    if(NO <= 0 || NH <= 0 || TI < 0 || TB < 0){
         param_msg();
     }
 
     sem_initialization();
-
+    (*hydro_tmp) = NH; // TODO FOR NOT ENOUGH O H
+    (*oxy_tmp) = NO;
+    if((2*NO) <= NH){
+        expectedMolecules = NO;
+    }
+    else{
+        expectedMolecules = NH/2;
+    }
+    //printf("Expected: %d", expectedMolecules);
 
     
 
