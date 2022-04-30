@@ -76,6 +76,10 @@ void clean(){
     shm_unlink("xhofma11_bar_cnt");
     munmap(bar_cnt, sizeof(sem_t));
 
+    close(hydro_tmp_shared);
+    shm_unlink("xhofma11_hydro_tmp");
+    munmap(bar_cnt, sizeof(sem_t));
+
     //TODO DESTROY ALL SEMAPHORES
 }
 
@@ -171,7 +175,7 @@ void sem_initialization(){
     (bar_mutex = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0)) == MAP_FAILED || sem_init(bar_mutex, 1, 1) == -1 || 
     (bar_1 = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0)) == MAP_FAILED || sem_init(bar_1, 1, 0) == -1 || 
     (bar_2 = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0)) == MAP_FAILED || sem_init(bar_2, 1, 1) == -1 || 
-    (enough = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0)) == MAP_FAILED || sem_init(enough, 1, 0) == -1){
+    (enough = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0)) == MAP_FAILED || sem_init(enough, 1, 1) == -1){
         fprintf(stderr,"Error initializing semaphores!\n");
         exit(ERR_FAIL);
     }    
@@ -223,14 +227,27 @@ void oxy_proc(int ti, int tb){
     // }
     sem_wait(log_write);
         (*counter)++;
-        (*idO_cnt)++;       
+              
         usleep((rand() % (ti+1))*1000);
         fprintf(fp,"%d: O %d: going to queue\n", *counter, idO);       
     sem_post(log_write);
 
     sem_wait(mutex);
-  
+    
+    sem_wait(log_write); 
+        if(expectedMolecules < (*molecule)){
+            if((*hydro_tmp) < 2){
+                fprintf(fp,"%d: O %d: not enough H\n", *counter, idO);
+                //sem_post(mutex);
+                exit(0);
+            }
+                   
 
+        }
+    sem_post(log_write);
+    
+
+    (*idO_cnt)++; 
     if((*idH_cnt) >= 2){
         //sem_post(oxy);
         
@@ -250,6 +267,9 @@ void oxy_proc(int ti, int tb){
 
     sem_wait(oxy);
     
+    
+
+
     sem_wait(log_write);
     (*counter)++;
     fprintf(fp,"%d: O %d: creating molecule %d\n",*counter, idO,*molecule);
@@ -275,7 +295,7 @@ void oxy_proc(int ti, int tb){
     sem_wait(log_write);
     (*counter)++;
     
-    fprintf(fp,"%d: O %d: molecule %d created\n", *counter, idO, *molecule);    
+    fprintf(fp,"%d: O %d: molecule %d created %d\n", *counter, idO, *molecule, *hydro_tmp);    
     sem_post(log_write);
 
 
@@ -292,9 +312,11 @@ void oxy_proc(int ti, int tb){
 
     sem_wait(bar_2);
     sem_post(bar_2);
+    
     (*molecule)++;
-    sem_post(mutex);  
-
+    
+    sem_post(mutex); 
+    
     fclose(fp); //Valgrind 
     exit(ERR_SUCC);
 }
@@ -328,11 +350,25 @@ void hydro_proc(int ti, int tb){
     usleep((rand() % (ti+1))*1000);
     sem_wait(log_write);
         (*counter)++;
-        (*idH_cnt)++;
+        
         fprintf(fp,"%d: H %d: going to queue\n", *counter, idH);
     sem_post(log_write);
 
     sem_wait(mutex);
+    
+   sem_wait(log_write); 
+        if(expectedMolecules < (*molecule)){
+            if((*hydro_tmp) < 2 || (*oxy_tmp < 1)){
+                fprintf(fp,"%d: H %d: not enough O or H\n", *counter, idH);
+                sem_post(mutex);
+                exit(0);
+            }
+                   
+
+        }
+    sem_post(log_write);
+
+    (*idH_cnt)++;
     if((*idH_cnt) >= 2 && (*idO_cnt) >= 1){
         sem_post(hydro);
         sem_post(hydro);
@@ -389,7 +425,6 @@ void hydro_proc(int ti, int tb){
     sem_post(bar_2);
 
     
-
     fclose(fp);//Valgrind
     exit(ERR_SUCC);
 }
