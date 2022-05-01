@@ -253,6 +253,7 @@ void oxy_proc(int ti, int tb){
         sem_wait(enough); 
         sem_wait(log_write);
         (*counter)++;
+        (*oxy_tmp)--;
         fprintf(fp,"%d: O %d: not enough H\n", *counter, idO);
         
         sem_post(log_write);
@@ -297,8 +298,7 @@ void oxy_proc(int ti, int tb){
             sem_wait(bar_1);
             sem_post(bar_2);
         }
-
-        
+ 
     sem_post(bar_mutex);
     sem_wait(bar_2);
     sem_post(bar_2);
@@ -309,6 +309,10 @@ void oxy_proc(int ti, int tb){
     if((*hydro_tmp) == 0 && (*oxy_tmp) != 0){
         sem_post(oxy);
     }
+    else if((*hydro_tmp) != 0 && (*oxy_tmp) == 0){
+        sem_post(hydro);
+    }
+    
     fclose(fp); //Valgrind 
     exit(ERR_SUCC);
 }
@@ -356,14 +360,18 @@ void hydro_proc(int ti, int tb){
             (*counter)++;
             fprintf(fp,"%d: H %d: not enough O or H\n", *counter, idH);
             sem_post(log_write);
-            sem_post(mutex);
             sem_post(enough);
+            
+            sem_post(mutex);
             if((*oxy_tmp) >= 1){
                 sem_post(oxy);
                
             }
-            
-            exit(0);  
+            if((*hydro_tmp) >= 1){
+                sem_post(hydro);
+            }
+            exit(0);
+              
         }
     
 
@@ -387,6 +395,21 @@ void hydro_proc(int ti, int tb){
 
     sem_wait(hydro);
     
+    if(expectedMolecules < (*molecule)){
+        
+        sem_wait(enough); 
+        sem_wait(log_write);
+        (*counter)++;
+        (*hydro_tmp)--;
+        fprintf(fp,"%d: H %d: not enough O or H\n", *counter, idH);
+        
+        sem_post(log_write);
+        sem_post(enough);
+        sem_post(hydro);
+
+        exit(0);         
+    }
+
     sem_wait(log_write);
     (*counter)++;
     
@@ -412,7 +435,6 @@ void hydro_proc(int ti, int tb){
     (*counter)++;
     fprintf(fp,"%d: H %d: molecule %d created\n", *counter, idH, *molecule);
     sem_post(log_write);
-
     sem_wait(bar_mutex);
         (*bar_cnt)--;
         if((*bar_cnt) == 0){

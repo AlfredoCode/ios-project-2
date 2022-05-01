@@ -6,9 +6,9 @@ RED='\033[1;31m'
 refresh=""
 log_txt=""
 separator="----------------------------------------------------------------------------"
-while [ $i -le 20 ]; do 
+while [ $i -le 100 ]; do 
     printf "${BLUE}Refresh $i${NC}\n";
-    refresh="$(./proj2 3 6 10 10 && cat proj2.out)";
+    refresh="$(./proj2 7 22 0 0 && cat proj2.out)";
     echo "$refresh";
     printf "%s"${RED}$separator${NC}\\n;
     test=$(echo "$refresh" | ./kontrola-vystupu.sh);
