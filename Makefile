@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -std=gnu99 -Wextra -Werror -pedantic -g 
+CFLAGS =  -std=gnu99 -Wall -Wextra -Werror -pedantic
 LDFLAGS = -pthread -lrt
 
 .PHONY: clean
