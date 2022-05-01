@@ -113,3 +113,12 @@ Vypíše: _A: H idH: molecule noM created_ a proces končí.
 
 Pokud již není k dispozici dostatek kyslíků nebo vodíků (ani nebudou žádné další
 vytvořeny/zařazeny do fronty) vypisuje: _A: H idH: not enough O or H_ a process končí.
+
+
+## Benchmark
+
+_Benchmark vykázal 0 chyb z 31 testů_
+
+_Autorem testů je_ https://github.com/galloj
+
+![benchmark](https://user-images.githubusercontent.com/90284990/166141866-5703e0ee-12fb-4fa0-94bc-533a2ecf974a.png)
