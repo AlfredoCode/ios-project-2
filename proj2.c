@@ -74,17 +74,26 @@ void clean(){
 
     close(hydro_tmp_shared);
     shm_unlink("xhofma11_hydro_tmp");
-    munmap(bar_cnt, sizeof(sem_t));
+    munmap(hydro_tmp, sizeof(sem_t));
 
-    close(hydro_tmp_shared);
+    close(oxy_tmp_shared);
     shm_unlink("xhofma11_oxy_tmp");
-    munmap(bar_cnt, sizeof(sem_t));
+    munmap(oxy_tmp, sizeof(sem_t));
 
-    //TODO DESTROY ALL SEMAPHORES
+    sem_destroy(enough2);
+    sem_destroy(enough);
+    sem_destroy(oxy);
+    sem_destroy(hydro);
+    sem_destroy(mutex);
+    sem_destroy(log_write);
+    sem_destroy(bar_mutex);
+    sem_destroy(bar_1);
+    sem_destroy(bar_2);
 }
 
 
 void sem_initialization(){
+    //clean();
     idO_shared = shm_open("xhofma11_idO", O_RDWR|O_CREAT, 0666);
     if(idO_shared < 1){
         fprintf(stderr,"error");
